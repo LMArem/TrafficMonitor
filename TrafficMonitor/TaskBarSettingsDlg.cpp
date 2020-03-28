@@ -1,4 +1,4 @@
-// TaskBarSettingsDlg.cpp : ÊµÏÖÎÄ¼ş
+ï»¿// TaskBarSettingsDlg.cpp : å®ç°æ–‡ä»¶
 //
 
 #include "stdafx.h"
@@ -8,7 +8,7 @@
 #include "CMFCColorDialogEx.h"
 
 
-// CTaskBarSettingsDlg ¶Ô»°¿ò
+// CTaskBarSettingsDlg å¯¹è¯æ¡†
 
 IMPLEMENT_DYNAMIC(CTaskBarSettingsDlg, CTabDlg)
 
@@ -39,6 +39,7 @@ void CTaskBarSettingsDlg::DrawStaticColor()
 	}
 	m_back_color_static.SetFillColor(m_data.back_color);
 	m_trans_color_static.SetFillColor(m_data.transparent_color);
+	m_status_bar_color_static.SetFillColor(m_data.status_bar_color);
 }
 
 void CTaskBarSettingsDlg::IniUnitCombo()
@@ -58,10 +59,87 @@ void CTaskBarSettingsDlg::IniUnitCombo()
 	m_unit_combo.SetCurSel(static_cast<int>(m_data.speed_unit));
 }
 
+void CTaskBarSettingsDlg::LoadConfig()
+{
+    CIniHelper ini{ theApp.m_config_path };
+    for (int i = 0; i < TASKBAR_DEFAULT_STYLE_NUM; i++)
+    {
+        wchar_t buff[64];
+        swprintf_s(buff, L"default%d_", i + 1);
+        wstring key_name = buff;
+        ini.GetIntArray(L"taskbar_default_style", (key_name + L"text_color").c_str(), (int*)m_default_style[i].text_colors, TASKBAR_COLOR_NUM, RGB(255, 255, 255));
+        m_default_style[i].back_color = ini.GetInt(L"taskbar_default_style", (key_name + L"back_color").c_str(), 0);
+        m_default_style[i].transparent_color = ini.GetInt(L"taskbar_default_style", (key_name + L"transparent_color").c_str(), 0);
+        m_default_style[i].status_bar_color = ini.GetInt(L"taskbar_default_style", (key_name + L"status_bar_color").c_str(), 0x005A5A5A);
+        m_default_style[i].specify_each_item_color = ini.GetBool(L"taskbar_default_style", (key_name + L"specify_each_item_color").c_str(), false);
+    }
+}
+
+void CTaskBarSettingsDlg::SaveConfig() const
+{
+    CIniHelper ini{ theApp.m_config_path };
+    for (int i = 0; i < TASKBAR_DEFAULT_STYLE_NUM; i++)
+    {
+        wchar_t buff[64];
+        swprintf_s(buff, L"default%d_", i + 1);
+        wstring key_name = buff;
+        ini.WriteIntArray(L"taskbar_default_style", (key_name + L"text_color").c_str(), (int*)m_default_style[i].text_colors, TASKBAR_COLOR_NUM);
+        ini.WriteInt(L"taskbar_default_style", (key_name + L"back_color").c_str(), m_default_style[i].back_color);
+        ini.WriteInt(L"taskbar_default_style", (key_name + L"transparent_color").c_str(), m_default_style[i].transparent_color);
+        ini.WriteInt(L"taskbar_default_style", (key_name + L"status_bar_color").c_str(), m_default_style[i].status_bar_color);
+        ini.WriteBool(L"taskbar_default_style", (key_name + L"specify_each_item_color").c_str(), m_default_style[i].specify_each_item_color);
+    }
+    ini.Save();
+}
+
+void CTaskBarSettingsDlg::ApplyDefaultStyle(int index)
+{
+    if (index < 0 || index >= TASKBAR_DEFAULT_STYLE_NUM)
+        return;
+
+    for (int i{}; i < TASKBAR_COLOR_NUM; i++)
+        m_data.text_colors[i] = m_default_style[index].text_colors[i];
+    m_data.back_color = m_default_style[index].back_color;
+    m_data.transparent_color = m_default_style[index].transparent_color;
+    m_data.status_bar_color = m_default_style[index].status_bar_color;
+    m_data.specify_each_item_color = m_default_style[index].specify_each_item_color;
+    DrawStaticColor();
+    ((CButton*)GetDlgItem(IDC_SPECIFY_EACH_ITEM_COLOR_CHECK))->SetCheck(m_data.specify_each_item_color);
+}
+
+void CTaskBarSettingsDlg::ModifyDefaultStyle(int index)
+{
+    if (index < 0 || index >= TASKBAR_DEFAULT_STYLE_NUM)
+        return;
+
+    for (int i{}; i < TASKBAR_COLOR_NUM; i++)
+        m_default_style[index].text_colors[i] = m_data.text_colors[i];
+    m_default_style[index].back_color = m_data.back_color;
+    m_default_style[index].transparent_color = m_data.transparent_color;
+    m_default_style[index].status_bar_color = m_data.status_bar_color;
+    m_default_style[index].specify_each_item_color = m_data.specify_each_item_color;
+}
+
+void CTaskBarSettingsDlg::EnableControl()
+{
+    bool exe_path_enable = (m_data.double_click_action == DoubleClickAction::SEPCIFIC_APP);
+    CWnd* pWnd{};
+    pWnd = GetDlgItem(IDC_EXE_PATH_STATIC);
+    if (pWnd != nullptr)
+        pWnd->ShowWindow(exe_path_enable ? SW_SHOW : SW_HIDE);
+    pWnd = GetDlgItem(IDC_EXE_PATH_EDIT);
+    if (pWnd != nullptr)
+        pWnd->ShowWindow(exe_path_enable ? SW_SHOW : SW_HIDE);
+    pWnd = GetDlgItem(IDC_BROWSE_BUTTON);
+    if (pWnd != nullptr)
+        pWnd->ShowWindow(exe_path_enable ? SW_SHOW : SW_HIDE);
+}
+
 void CTaskBarSettingsDlg::DoDataExchange(CDataExchange* pDX)
 {
 	DDX_Control(pDX, IDC_TEXT_COLOR_STATIC1, m_text_color_static);
 	DDX_Control(pDX, IDC_TEXT_COLOR_STATIC2, m_back_color_static);
+	DDX_Control(pDX, IDC_TEXT_COLOR_STATIC3, m_status_bar_color_static);
 	CTabDlg::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_UNIT_COMBO, m_unit_combo);
 	DDX_Control(pDX, IDC_HIDE_UNIT_CHECK, m_hide_unit_chk);
@@ -90,22 +168,37 @@ BEGIN_MESSAGE_MAP(CTaskBarSettingsDlg, CTabDlg)
 	ON_BN_CLICKED(IDC_SPECIFY_EACH_ITEM_COLOR_CHECK, &CTaskBarSettingsDlg::OnBnClickedSpecifyEachItemColorCheck)
 	ON_CBN_SELCHANGE(IDC_DOUBLE_CLICK_COMBO, &CTaskBarSettingsDlg::OnCbnSelchangeDoubleClickCombo)
 	ON_BN_CLICKED(IDC_HORIZONTAL_ARRANGE_CHECK, &CTaskBarSettingsDlg::OnBnClickedHorizontalArrangeCheck)
+	ON_BN_CLICKED(IDC_SHOW_STATUS_BAR_CHECK, &CTaskBarSettingsDlg::OnBnClickedShowStatusBarCheck)
 	ON_BN_CLICKED(IDC_SEPARATE_VALUE_UNIT_CHECK, &CTaskBarSettingsDlg::OnBnClickedSeparateValueUnitCheck)
 	ON_BN_CLICKED(IDC_UNIT_BYTE_RADIO, &CTaskBarSettingsDlg::OnBnClickedUnitByteRadio)
 	ON_BN_CLICKED(IDC_UNIT_BIT_RADIO, &CTaskBarSettingsDlg::OnBnClickedUnitBitRadio)
+    ON_BN_CLICKED(IDC_SHOW_TOOL_TIP_CHK, &CTaskBarSettingsDlg::OnBnClickedShowToolTipChk)
+	//ON_BN_CLICKED(IDC_SET_LIGHT_MODE_BUTTON, &CTaskBarSettingsDlg::OnBnClickedSetLightMode)
+    ON_COMMAND(ID_DEFAULT_STYLE1, &CTaskBarSettingsDlg::OnDefaultStyle1)
+    ON_COMMAND(ID_DEFAULT_STYLE2, &CTaskBarSettingsDlg::OnDefaultStyle2)
+    ON_COMMAND(ID_DEFAULT_STYLE3, &CTaskBarSettingsDlg::OnDefaultStyle3)
+    ON_COMMAND(ID_MODIFY_DEFAULT_STYLE1, &CTaskBarSettingsDlg::OnModifyDefaultStyle1)
+    ON_COMMAND(ID_MODIFY_DEFAULT_STYLE2, &CTaskBarSettingsDlg::OnModifyDefaultStyle2)
+    ON_COMMAND(ID_MODIFY_DEFAULT_STYLE3, &CTaskBarSettingsDlg::OnModifyDefaultStyle3)
+    ON_COMMAND(ID_LIGHT_MODE_STYLE, &CTaskBarSettingsDlg::OnLightModeStyle)
+    ON_BN_CLICKED(IDC_DEFAULT_STYLE_BUTTON, &CTaskBarSettingsDlg::OnBnClickedDefaultStyleButton)
+    ON_WM_DESTROY()
+    ON_BN_CLICKED(IDC_BROWSE_BUTTON, &CTaskBarSettingsDlg::OnBnClickedBrowseButton)
 END_MESSAGE_MAP()
 
 
-// CTaskBarSettingsDlg ÏûÏ¢´¦Àí³ÌĞò
+// CTaskBarSettingsDlg æ¶ˆæ¯å¤„ç†ç¨‹åº
 
 
 BOOL CTaskBarSettingsDlg::OnInitDialog()
 {
 	CTabDlg::OnInitDialog();
 
-	// TODO:  ÔÚ´ËÌí¼Ó¶îÍâµÄ³õÊ¼»¯
+	// TODO:  åœ¨æ­¤æ·»åŠ é¢å¤–çš„åˆå§‹åŒ–
 
-	//³õÊ¼»¯¸÷¿Ø¼ş×´Ì¬
+    LoadConfig();
+
+	//åˆå§‹åŒ–å„æ§ä»¶çŠ¶æ€
 	SetDlgItemText(IDC_FONT_NAME_EDIT1, m_data.font.name);
 	//wchar_t buff[16];
 	//swprintf_s(buff, L"%d", m_data.font_size);
@@ -123,11 +216,14 @@ BOOL CTaskBarSettingsDlg::OnInitDialog()
 	((CButton*)GetDlgItem(IDC_SPEED_SHORT_MODE_CHECK))->SetCheck(m_data.speed_short_mode);
 	((CButton*)GetDlgItem(IDC_VALUE_RIGHT_ALIGN_CHECK))->SetCheck(m_data.value_right_align);
 	((CButton*)GetDlgItem(IDC_HORIZONTAL_ARRANGE_CHECK))->SetCheck(m_data.horizontal_arrange);
+	((CButton*)GetDlgItem(IDC_SHOW_STATUS_BAR_CHECK))->SetCheck(m_data.show_status_bar);
 	((CButton*)GetDlgItem(IDC_SEPARATE_VALUE_UNIT_CHECK))->SetCheck(m_data.separate_value_unit_with_space);
+	((CButton*)GetDlgItem(IDC_SHOW_TOOL_TIP_CHK))->SetCheck(m_data.show_tool_tip);
 
 	m_text_color_static.SetLinkCursor();
 	m_back_color_static.SetLinkCursor();
 	m_trans_color_static.SetLinkCursor();
+	m_status_bar_color_static.SetLinkCursor();
 	DrawStaticColor();
 
 #ifdef COMPILE_FOR_WINXP
@@ -163,6 +259,7 @@ BOOL CTaskBarSettingsDlg::OnInitDialog()
 	m_double_click_combo.AddString(CCommon::LoadText(IDS_SHOW_HIDE_CPU_MEMORY));
 	m_double_click_combo.AddString(CCommon::LoadText(IDS_OPEN_OPTION_SETTINGS));
 	m_double_click_combo.AddString(CCommon::LoadText(IDS_OPEN_TASK_MANAGER));
+	m_double_click_combo.AddString(CCommon::LoadText(IDS_SPECIFIC_APP));
 	m_double_click_combo.AddString(CCommon::LoadText(IDS_NONE));
 	m_double_click_combo.SetCurSel(static_cast<int>(m_data.double_click_action));
 
@@ -173,14 +270,20 @@ BOOL CTaskBarSettingsDlg::OnInitDialog()
 	m_digit_number_combo.AddString(_T("7"));
 	m_digit_number_combo.SetCurSel(m_data.digits_number - 3);
 
+    SetDlgItemText(IDC_EXE_PATH_EDIT, m_data.double_click_exe.c_str());
+    EnableControl();
+
+    m_default_style_menu.LoadMenu(IDR_TASKBAR_STYLE_MENU);
+
+
 	return TRUE;  // return TRUE unless you set the focus to a control
-				  // Òì³£: OCX ÊôĞÔÒ³Ó¦·µ»Ø FALSE
+				  // å¼‚å¸¸: OCX å±æ€§é¡µåº”è¿”å› FALSE
 }
 
 
 void CTaskBarSettingsDlg::OnBnClickedSetFontButton1()
 {
-	// TODO: ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	LOGFONT lf{};
 	lf.lfHeight = FONTSIZE_TO_LFHEIGHT(m_data.font.size);
 	lf.lfWeight = (m_data.font.bold ? FW_BOLD : FW_NORMAL);
@@ -191,17 +294,17 @@ void CTaskBarSettingsDlg::OnBnClickedSetFontButton1()
 	//wcsncpy_s(lf.lfFaceName, m_data.font.name.GetString(), 32);
 	CCommon::WStringCopy(lf.lfFaceName, 32, m_data.font.name.GetString());
 	CCommon::NormalizeFont(lf);
-	CFontDialog fontDlg(&lf);	//¹¹Ôì×ÖÌå¶Ô»°¿ò£¬³õÊ¼Ñ¡Ôñ×ÖÌåÎªÖ®Ç°×ÖÌå
-	if (IDOK == fontDlg.DoModal())     // ÏÔÊ¾×ÖÌå¶Ô»°¿ò
+	CFontDialog fontDlg(&lf);	//æ„é€ å­—ä½“å¯¹è¯æ¡†ï¼Œåˆå§‹é€‰æ‹©å­—ä½“ä¸ºä¹‹å‰å­—ä½“
+	if (IDOK == fontDlg.DoModal())     // æ˜¾ç¤ºå­—ä½“å¯¹è¯æ¡†
 	{
-		//»ñÈ¡×ÖÌåĞÅÏ¢
+		//è·å–å­—ä½“ä¿¡æ¯
 		m_data.font.name = fontDlg.GetFaceName();
 		m_data.font.size = fontDlg.GetSize() / 10;
 		m_data.font.bold = (fontDlg.IsBold() != FALSE);
 		m_data.font.italic = (fontDlg.IsItalic() != FALSE);
 		m_data.font.underline = (fontDlg.IsUnderline() != FALSE);
 		m_data.font.strike_out = (fontDlg.IsStrikeOut() != FALSE);
-		//½«×ÖÌåĞÅÏ¢ÏÔÊ¾³öÀ´
+		//å°†å­—ä½“ä¿¡æ¯æ˜¾ç¤ºå‡ºæ¥
 		SetDlgItemText(IDC_FONT_NAME_EDIT1, m_data.font.name);
 		wchar_t buff[16];
 		swprintf_s(buff, L"%d", m_data.font.size);
@@ -212,12 +315,12 @@ void CTaskBarSettingsDlg::OnBnClickedSetFontButton1()
 
 void CTaskBarSettingsDlg::OnEnChangeUploadEdit1()
 {
-	// TODO:  Èç¹û¸Ã¿Ø¼şÊÇ RICHEDIT ¿Ø¼ş£¬Ëü½«²»
-	// ·¢ËÍ´ËÍ¨Öª£¬³ı·ÇÖØĞ´ CTabDlg::OnInitDialog()
-	// º¯Êı²¢µ÷ÓÃ CRichEditCtrl().SetEventMask()£¬
-	// Í¬Ê±½« ENM_CHANGE ±êÖ¾¡°»ò¡±ÔËËãµ½ÑÚÂëÖĞ¡£
+	// TODO:  å¦‚æœè¯¥æ§ä»¶æ˜¯ RICHEDIT æ§ä»¶ï¼Œå®ƒå°†ä¸
+	// å‘é€æ­¤é€šçŸ¥ï¼Œé™¤éé‡å†™ CTabDlg::OnInitDialog()
+	// å‡½æ•°å¹¶è°ƒç”¨ CRichEditCtrl().SetEventMask()ï¼Œ
+	// åŒæ—¶å°† ENM_CHANGE æ ‡å¿—â€œæˆ–â€è¿ç®—åˆ°æ©ç ä¸­ã€‚
 
-	// TODO:  ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO:  åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	CString tmp;
 	GetDlgItemText(IDC_UPLOAD_EDIT1, tmp);
 	m_data.disp_str.up = tmp;
@@ -226,12 +329,12 @@ void CTaskBarSettingsDlg::OnEnChangeUploadEdit1()
 
 void CTaskBarSettingsDlg::OnEnChangeDownloadEdit1()
 {
-	// TODO:  Èç¹û¸Ã¿Ø¼şÊÇ RICHEDIT ¿Ø¼ş£¬Ëü½«²»
-	// ·¢ËÍ´ËÍ¨Öª£¬³ı·ÇÖØĞ´ CTabDlg::OnInitDialog()
-	// º¯Êı²¢µ÷ÓÃ CRichEditCtrl().SetEventMask()£¬
-	// Í¬Ê±½« ENM_CHANGE ±êÖ¾¡°»ò¡±ÔËËãµ½ÑÚÂëÖĞ¡£
+	// TODO:  å¦‚æœè¯¥æ§ä»¶æ˜¯ RICHEDIT æ§ä»¶ï¼Œå®ƒå°†ä¸
+	// å‘é€æ­¤é€šçŸ¥ï¼Œé™¤éé‡å†™ CTabDlg::OnInitDialog()
+	// å‡½æ•°å¹¶è°ƒç”¨ CRichEditCtrl().SetEventMask()ï¼Œ
+	// åŒæ—¶å°† ENM_CHANGE æ ‡å¿—â€œæˆ–â€è¿ç®—åˆ°æ©ç ä¸­ã€‚
 
-	// TODO:  ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO:  åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	CString tmp;
 	GetDlgItemText(IDC_DOWNLOAD_EDIT1, tmp);
 	m_data.disp_str.down = tmp;
@@ -240,12 +343,12 @@ void CTaskBarSettingsDlg::OnEnChangeDownloadEdit1()
 
 void CTaskBarSettingsDlg::OnEnChangeCpuEdit1()
 {
-	// TODO:  Èç¹û¸Ã¿Ø¼şÊÇ RICHEDIT ¿Ø¼ş£¬Ëü½«²»
-	// ·¢ËÍ´ËÍ¨Öª£¬³ı·ÇÖØĞ´ CTabDlg::OnInitDialog()
-	// º¯Êı²¢µ÷ÓÃ CRichEditCtrl().SetEventMask()£¬
-	// Í¬Ê±½« ENM_CHANGE ±êÖ¾¡°»ò¡±ÔËËãµ½ÑÚÂëÖĞ¡£
+	// TODO:  å¦‚æœè¯¥æ§ä»¶æ˜¯ RICHEDIT æ§ä»¶ï¼Œå®ƒå°†ä¸
+	// å‘é€æ­¤é€šçŸ¥ï¼Œé™¤éé‡å†™ CTabDlg::OnInitDialog()
+	// å‡½æ•°å¹¶è°ƒç”¨ CRichEditCtrl().SetEventMask()ï¼Œ
+	// åŒæ—¶å°† ENM_CHANGE æ ‡å¿—â€œæˆ–â€è¿ç®—åˆ°æ©ç ä¸­ã€‚
 
-	// TODO:  ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO:  åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	CString tmp;
 	GetDlgItemText(IDC_CPU_EDIT1, tmp);
 	m_data.disp_str.cpu = tmp;
@@ -254,12 +357,12 @@ void CTaskBarSettingsDlg::OnEnChangeCpuEdit1()
 
 void CTaskBarSettingsDlg::OnEnChangeMemoryEdit1()
 {
-	// TODO:  Èç¹û¸Ã¿Ø¼şÊÇ RICHEDIT ¿Ø¼ş£¬Ëü½«²»
-	// ·¢ËÍ´ËÍ¨Öª£¬³ı·ÇÖØĞ´ CTabDlg::OnInitDialog()
-	// º¯Êı²¢µ÷ÓÃ CRichEditCtrl().SetEventMask()£¬
-	// Í¬Ê±½« ENM_CHANGE ±êÖ¾¡°»ò¡±ÔËËãµ½ÑÚÂëÖĞ¡£
+	// TODO:  å¦‚æœè¯¥æ§ä»¶æ˜¯ RICHEDIT æ§ä»¶ï¼Œå®ƒå°†ä¸
+	// å‘é€æ­¤é€šçŸ¥ï¼Œé™¤éé‡å†™ CTabDlg::OnInitDialog()
+	// å‡½æ•°å¹¶è°ƒç”¨ CRichEditCtrl().SetEventMask()ï¼Œ
+	// åŒæ—¶å°† ENM_CHANGE æ ‡å¿—â€œæˆ–â€è¿ç®—åˆ°æ©ç ä¸­ã€‚
 
-	// TODO:  ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO:  åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	CString tmp;
 	GetDlgItemText(IDC_MEMORY_EDIT1, tmp);
 	m_data.disp_str.memory = tmp;
@@ -268,9 +371,9 @@ void CTaskBarSettingsDlg::OnEnChangeMemoryEdit1()
 
 void CTaskBarSettingsDlg::OnBnClickedSetDefaultButton1()
 {
-	// TODO: ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
-	m_data.disp_str.up = L"¡ü: ";
-	m_data.disp_str.down = L"¡ı: ";
+	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
+	m_data.disp_str.up = L"â†‘: ";
+	m_data.disp_str.down = L"â†“: ";
 	m_data.disp_str.cpu = L"CPU: ";
 	m_data.disp_str.memory = CCommon::LoadText(IDS_MEMORY_DISP, _T(": "));
 	SetDlgItemText(IDC_UPLOAD_EDIT1, m_data.disp_str.up.c_str());
@@ -282,28 +385,28 @@ void CTaskBarSettingsDlg::OnBnClickedSetDefaultButton1()
 
 void CTaskBarSettingsDlg::OnBnClickedSwitchUpDownCheck1()
 {
-	// TODO: ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	m_data.swap_up_down = (((CButton*)GetDlgItem(IDC_SWITCH_UP_DOWN_CHECK1))->GetCheck() != 0);
 }
 
 
 void CTaskBarSettingsDlg::OnBnClickedTaskbarWndOnLeftCheck()
 {
-	// TODO: ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	m_data.tbar_wnd_on_left = (((CButton*)GetDlgItem(IDC_TASKBAR_WND_ON_LEFT_CHECK))->GetCheck() != 0);
 }
 
 
 void CTaskBarSettingsDlg::OnBnClickedSpeedShortModeCheck()
 {
-	// TODO: ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	m_data.speed_short_mode = (((CButton*)GetDlgItem(IDC_SPEED_SHORT_MODE_CHECK))->GetCheck() != 0);
 }
 
 
 BOOL CTaskBarSettingsDlg::PreTranslateMessage(MSG* pMsg)
 {
-	// TODO: ÔÚ´ËÌí¼Ó×¨ÓÃ´úÂëºÍ/»òµ÷ÓÃ»ùÀà
+	// TODO: åœ¨æ­¤æ·»åŠ ä¸“ç”¨ä»£ç å’Œ/æˆ–è°ƒç”¨åŸºç±»
 	if (pMsg->message == WM_MOUSEMOVE)
 		m_toolTip.RelayEvent(pMsg);
 
@@ -313,7 +416,7 @@ BOOL CTaskBarSettingsDlg::PreTranslateMessage(MSG* pMsg)
 
 void CTaskBarSettingsDlg::OnCbnSelchangeUnitCombo()
 {
-	// TODO: ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	m_data.speed_unit = static_cast<SpeedUnit>(m_unit_combo.GetCurSel());
 	if (m_data.speed_unit == SpeedUnit::AUTO)
 	{
@@ -330,15 +433,15 @@ void CTaskBarSettingsDlg::OnCbnSelchangeUnitCombo()
 
 void CTaskBarSettingsDlg::OnBnClickedHideUnitCheck()
 {
-	// TODO: ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	m_data.hide_unit = (m_hide_unit_chk.GetCheck() != 0);
 }
 
 
 void CTaskBarSettingsDlg::OnOK()
 {
-	// TODO: ÔÚ´ËÌí¼Ó×¨ÓÃ´úÂëºÍ/»òµ÷ÓÃ»ùÀà
-	//»ñÈ¡×ÖÌåÉèÖÃ
+	// TODO: åœ¨æ­¤æ·»åŠ ä¸“ç”¨ä»£ç å’Œ/æˆ–è°ƒç”¨åŸºç±»
+	//è·å–å­—ä½“è®¾ç½®
 	int font_size;
 	font_size = m_font_size_edit.GetValue();
 	if (font_size > MAX_FONT_SIZE || font_size < MIN_FONT_SIZE)
@@ -353,7 +456,7 @@ void CTaskBarSettingsDlg::OnOK()
 	}
 	GetDlgItemText(IDC_FONT_NAME_EDIT1, m_data.font.name);
 
-	//»ñÈ¡Êı¾İÎ»ÊıµÄÉèÖÃ
+	//è·å–æ•°æ®ä½æ•°çš„è®¾ç½®
 	m_data.digits_number = m_digit_number_combo.GetCurSel() + 3;
 
 	CTabDlg::OnOK();
@@ -362,14 +465,14 @@ void CTaskBarSettingsDlg::OnOK()
 
 void CTaskBarSettingsDlg::OnBnClickedValueRightAlignCheck()
 {
-	// TODO: ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	m_data.value_right_align = (((CButton*)GetDlgItem(IDC_VALUE_RIGHT_ALIGN_CHECK))->GetCheck() != 0);
 }
 
 
 void CTaskBarSettingsDlg::OnBnClickedHidePercentageCheck()
 {
-	// TODO: ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	m_data.hide_percent = (((CButton*)GetDlgItem(IDC_HIDE_PERCENTAGE_CHECK))->GetCheck() != 0);
 }
 
@@ -378,9 +481,9 @@ afx_msg LRESULT CTaskBarSettingsDlg::OnStaticClicked(WPARAM wParam, LPARAM lPara
 {
 	switch (::GetDlgCtrlID(((CWnd*)wParam)->m_hWnd))
 	{
-	case IDC_TEXT_COLOR_STATIC1:		//µã»÷¡°ÎÄ±¾ÑÕÉ«¡±Ê±
+	case IDC_TEXT_COLOR_STATIC1:		//ç‚¹å‡»â€œæ–‡æœ¬é¢œè‰²â€æ—¶
 	{
-		//ÉèÖÃÎÄ±¾ÑÕÉ«
+		//è®¾ç½®æ–‡æœ¬é¢œè‰²
 		if (m_data.specify_each_item_color)
 		{
 			CTaskbarColorDlg colorDlg(m_data.text_colors);
@@ -404,9 +507,9 @@ afx_msg LRESULT CTaskBarSettingsDlg::OnStaticClicked(WPARAM wParam, LPARAM lPara
 		}
 		break;
 	}
-	case IDC_TEXT_COLOR_STATIC2:		//µã»÷¡°±³¾°ÑÕÉ«¡±Ê±
+	case IDC_TEXT_COLOR_STATIC2:		//ç‚¹å‡»â€œèƒŒæ™¯é¢œè‰²â€æ—¶
 	{
-		//ÉèÖÃ±³¾°ÑÕÉ«
+		//è®¾ç½®èƒŒæ™¯é¢œè‰²
 		CMFCColorDialogEx colorDlg(m_data.back_color, 0, this);
 		if (colorDlg.DoModal() == IDOK)
 		{
@@ -417,12 +520,22 @@ afx_msg LRESULT CTaskBarSettingsDlg::OnStaticClicked(WPARAM wParam, LPARAM lPara
 		}
 		break;
 	}
-	case IDC_TRANSPARENT_COLOR_STATIC:		//µã»÷¡°Í¸Ã÷É«¡±Ê±
+	case IDC_TRANSPARENT_COLOR_STATIC:		//ç‚¹å‡»â€œé€æ˜è‰²â€æ—¶
 	{
 		CMFCColorDialogEx colorDlg(m_data.transparent_color, 0, this);
 		if (colorDlg.DoModal() == IDOK)
 		{
 			m_data.transparent_color = colorDlg.GetColor();
+			DrawStaticColor();
+		}
+		break;
+	}
+	case IDC_TEXT_COLOR_STATIC3:		//ç‚¹å‡»â€œçŠ¶æ€æ¡é¢œè‰²â€æ—¶
+	{
+		CMFCColorDialogEx colorDlg(m_data.status_bar_color, 0, this);
+		if (colorDlg.DoModal() == IDOK)
+		{
+			m_data.status_bar_color = colorDlg.GetColor();
 			DrawStaticColor();
 		}
 		break;
@@ -436,7 +549,7 @@ afx_msg LRESULT CTaskBarSettingsDlg::OnStaticClicked(WPARAM wParam, LPARAM lPara
 
 void CTaskBarSettingsDlg::OnBnClickedSpecifyEachItemColorCheck()
 {
-	// TODO: ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	m_data.specify_each_item_color = (((CButton*)GetDlgItem(IDC_SPECIFY_EACH_ITEM_COLOR_CHECK))->GetCheck() != 0);
 	DrawStaticColor();
 }
@@ -444,28 +557,36 @@ void CTaskBarSettingsDlg::OnBnClickedSpecifyEachItemColorCheck()
 
 void CTaskBarSettingsDlg::OnCbnSelchangeDoubleClickCombo()
 {
-	// TODO: ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	m_data.double_click_action = static_cast<DoubleClickAction>(m_double_click_combo.GetCurSel());
+    EnableControl();
 }
 
 
 void CTaskBarSettingsDlg::OnBnClickedHorizontalArrangeCheck()
 {
-	// TODO: ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	m_data.horizontal_arrange = (((CButton*)GetDlgItem(IDC_HORIZONTAL_ARRANGE_CHECK))->GetCheck() != 0);
+}
+
+
+void CTaskBarSettingsDlg::OnBnClickedShowStatusBarCheck()
+{
+	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
+	m_data.show_status_bar = (((CButton*)GetDlgItem(IDC_SHOW_STATUS_BAR_CHECK))->GetCheck() != 0);
 }
 
 
 void CTaskBarSettingsDlg::OnBnClickedSeparateValueUnitCheck()
 {
-	// TODO: ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	m_data.separate_value_unit_with_space = (((CButton*)GetDlgItem(IDC_SEPARATE_VALUE_UNIT_CHECK))->GetCheck() != 0);
 }
 
 
 void CTaskBarSettingsDlg::OnBnClickedUnitByteRadio()
 {
-	// TODO: ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	m_data.unit_byte = true;
 	IniUnitCombo();
 }
@@ -473,7 +594,129 @@ void CTaskBarSettingsDlg::OnBnClickedUnitByteRadio()
 
 void CTaskBarSettingsDlg::OnBnClickedUnitBitRadio()
 {
-	// TODO: ÔÚ´ËÌí¼Ó¿Ø¼şÍ¨Öª´¦Àí³ÌĞò´úÂë
+	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
 	m_data.unit_byte = false;
 	IniUnitCombo();
+}
+
+
+void CTaskBarSettingsDlg::OnBnClickedShowToolTipChk()
+{
+    // TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
+    m_data.show_tool_tip = (((CButton*)GetDlgItem(IDC_SHOW_TOOL_TIP_CHK))->GetCheck() != 0);
+}
+
+//void CTaskBarSettingsDlg::OnBnClickedSetLightMode()
+//{
+//	// TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
+//	for (int i{}; i < TASKBAR_COLOR_NUM; i++)
+//		m_data.text_colors[i] = RGB(0, 0, 0);
+//	m_data.back_color = RGB(210, 210, 210);
+//	m_data.transparent_color = RGB(210, 210, 210);
+//	m_data.status_bar_color = RGB(165, 165, 165);
+//	DrawStaticColor();
+//}
+
+
+void CTaskBarSettingsDlg::OnDefaultStyle1()
+{
+    // TODO: åœ¨æ­¤æ·»åŠ å‘½ä»¤å¤„ç†ç¨‹åºä»£ç 
+    ApplyDefaultStyle(0);
+}
+
+
+void CTaskBarSettingsDlg::OnDefaultStyle2()
+{
+    // TODO: åœ¨æ­¤æ·»åŠ å‘½ä»¤å¤„ç†ç¨‹åºä»£ç 
+    ApplyDefaultStyle(1);
+}
+
+
+void CTaskBarSettingsDlg::OnDefaultStyle3()
+{
+    // TODO: åœ¨æ­¤æ·»åŠ å‘½ä»¤å¤„ç†ç¨‹åºä»£ç 
+    ApplyDefaultStyle(2);
+}
+
+
+void CTaskBarSettingsDlg::OnModifyDefaultStyle1()
+{
+    // TODO: åœ¨æ­¤æ·»åŠ å‘½ä»¤å¤„ç†ç¨‹åºä»£ç 
+    if (MessageBox(CCommon::LoadTextFormat(IDS_SAVE_DEFAULT_STYLE_INQUIRY, { 1 }), NULL, MB_ICONQUESTION | MB_YESNO) == IDYES)
+    {
+        ModifyDefaultStyle(0);
+    }
+}
+
+
+void CTaskBarSettingsDlg::OnModifyDefaultStyle2()
+{
+    // TODO: åœ¨æ­¤æ·»åŠ å‘½ä»¤å¤„ç†ç¨‹åºä»£ç 
+    if (MessageBox(CCommon::LoadTextFormat(IDS_SAVE_DEFAULT_STYLE_INQUIRY, { 2 }), NULL, MB_ICONQUESTION | MB_YESNO) == IDYES)
+    {
+        ModifyDefaultStyle(1);
+    }
+}
+
+
+void CTaskBarSettingsDlg::OnModifyDefaultStyle3()
+{
+    // TODO: åœ¨æ­¤æ·»åŠ å‘½ä»¤å¤„ç†ç¨‹åºä»£ç 
+    if (MessageBox(CCommon::LoadTextFormat(IDS_SAVE_DEFAULT_STYLE_INQUIRY, { 3 }), NULL, MB_ICONQUESTION | MB_YESNO) == IDYES)
+    {
+        ModifyDefaultStyle(2);
+    }
+}
+
+
+void CTaskBarSettingsDlg::OnLightModeStyle()
+{
+    // TODO: åœ¨æ­¤æ·»åŠ å‘½ä»¤å¤„ç†ç¨‹åºä»£ç 
+    for (int i{}; i < TASKBAR_COLOR_NUM; i++)
+        m_data.text_colors[i] = RGB(0, 0, 0);
+    m_data.back_color = RGB(210, 210, 210);
+    m_data.transparent_color = RGB(210, 210, 210);
+    m_data.status_bar_color = RGB(165, 165, 165);
+    DrawStaticColor();
+}
+
+
+void CTaskBarSettingsDlg::OnBnClickedDefaultStyleButton()
+{
+    // TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
+    CWnd* pBtn = GetDlgItem(IDC_DEFAULT_STYLE_BUTTON);
+    CPoint point;
+    if (pBtn != nullptr)
+    {
+        CRect rect;
+        pBtn->GetWindowRect(rect);
+        point.x = rect.left;
+        point.y = rect.bottom;
+        CMenu* pMenu = m_default_style_menu.GetSubMenu(0);
+        if (pMenu != NULL)
+            pMenu->TrackPopupMenu(TPM_LEFTALIGN | TPM_RIGHTBUTTON, point.x, point.y, this);
+    }
+
+}
+
+
+void CTaskBarSettingsDlg::OnDestroy()
+{
+    CTabDlg::OnDestroy();
+
+    // TODO: åœ¨æ­¤å¤„æ·»åŠ æ¶ˆæ¯å¤„ç†ç¨‹åºä»£ç 
+    SaveConfig();
+}
+
+
+void CTaskBarSettingsDlg::OnBnClickedBrowseButton()
+{
+    // TODO: åœ¨æ­¤æ·»åŠ æ§ä»¶é€šçŸ¥å¤„ç†ç¨‹åºä»£ç 
+    CString szFilter = CCommon::LoadText(IDS_EXE_FILTER);
+    CFileDialog fileDlg(TRUE, NULL, NULL, 0, szFilter, this);
+    if (IDOK == fileDlg.DoModal())
+    {
+        m_data.double_click_exe = fileDlg.GetPathName();
+        SetDlgItemText(IDC_EXE_PATH_EDIT, m_data.double_click_exe.c_str());
+    }
 }

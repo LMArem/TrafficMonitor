@@ -86,6 +86,7 @@ enum class DoubleClickAction
 	SHOW_MORE_INFO,		//显示更多信息
 	OPTIONS,			//选项设置
 	TASK_MANAGER,		//任务管理器
+    SEPCIFIC_APP,       //指定应用程序
 	CHANGE_SKIN,		//更换皮肤
 	NONE				//不执行任何动作
 };
@@ -97,6 +98,13 @@ enum class Language
 	ENGLISH,				//英语
 	SIMPLIFIED_CHINESE,		//简体中文
 	TRADITIONAL_CHINESE		//繁体中文
+};
+
+//颜色模式
+enum class ColorMode
+{
+	Default, //默认颜色
+	Light	//浅色
 };
 
 //字体
@@ -134,6 +142,7 @@ struct MainConfigData
 	string m_connection_name;		//当前选择网络的名称
 
 	wstring m_skin_name;			//选择的皮肤的名称
+	int m_dft_notify_icon = 0;		//默认的通知图标(用于区分win10的深色和浅色模式)
 	int m_notify_icon_selected{};	//要显示的通知区图标
 	bool m_alow_out_of_border{ false };		//是否允许悬浮窗超出屏幕边界
 
@@ -150,12 +159,13 @@ struct PublicSettingData
 	bool swap_up_down{ false };		//交换上传和下载显示的位置
 	bool speed_short_mode{ false };		//网速显示简洁模式（减少小数点的位数，单位不显示“B”）
 	bool separate_value_unit_with_space{ true };	//网速数值和单位用空格分隔
+    bool show_tool_tip{ true };         //显示鼠标提示
 	bool unit_byte{ true };				//使用字节(B)而不是比特(b)为单位
 	SpeedUnit speed_unit;		//网速的单位
 	bool hide_unit;			//隐藏单位
 	bool hide_percent;		//隐藏百分号
 	DoubleClickAction double_click_action;		//鼠标双击动作
-	wstring double_click_exe;	//鼠标双击动作为4时，打开的程序路径，默认任务管理器
+	wstring double_click_exe;	//鼠标双击动作为打开指定应用程序时，打开的程序路径
 };
 
 #define MAIN_WND_COLOR_NUM 4		//主窗口颜色数量
@@ -172,10 +182,16 @@ struct TaskBarSettingData : public PublicSettingData
 {
 	COLORREF  back_color{ RGB(0, 0, 0) };	//背景颜色
 	COLORREF transparent_color{ RGB(0, 0, 0) };		//透明色
+	COLORREF status_bar_color{ RGB(0, 0, 0) };		// CPU/内存 状态条颜色
 	COLORREF text_colors[TASKBAR_COLOR_NUM]{};		//文字颜色（依次为“上传”、“下载”、“CPU”、“内存”的标签和数据颜色）
+	int dft_back_color = 0;							//默认背景颜色
+	int dft_transparent_color = 0;					//默认透明色
+	int dft_status_bar_color = 0x005A5A5A;			//默认CPU/内存 状态条颜色
+	int dft_text_colors = 0x00ffffffU;				//默认文字颜色（依次为“上传”、“下载”、“CPU”、“内存”的标签和数据颜色）
 	bool value_right_align{ false };	//数值是否右对齐
 	int digits_number{ 4 };				//数据位数
 	bool horizontal_arrange{ true };	//水平排列
+	bool show_status_bar{ true };		//显示 CPU/内存的状态条
 	bool tbar_wnd_on_left{ false };		//如果为true，则任务栏窗口显示在任务栏的左侧（或上方）
 };
 

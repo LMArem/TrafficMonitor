@@ -442,7 +442,7 @@ void CTrafficMonitorDlg::IniConnectionMenu(CMenu * pMenu)
 void CTrafficMonitorDlg::IniTaskBarConnectionMenu()
 {
 	//初始化任务栏窗口中的“选择网络连接”子菜单项
-	if (m_tBarDlg != nullptr)
+	if (IsTaskbarWndValid())
 	{
 		m_tBarDlg->m_menu.DestroyMenu();
 		m_tBarDlg->m_menu.LoadMenu(IDR_TASK_BAR_MENU);
@@ -465,7 +465,8 @@ void CTrafficMonitorDlg::CloseTaskBarWnd()
 {
 	if (m_tBarDlg != nullptr)
 	{
-		m_tBarDlg->OnCancel();
+        if(IsTaskbarWndValid())
+            m_tBarDlg->OnCancel();
 		delete m_tBarDlg;
 		m_tBarDlg = nullptr;
 	}
@@ -660,7 +661,7 @@ void CTrafficMonitorDlg::_OnOptions(int tab)
 		theApp.SaveGlobalConfig();
 
 		//CTaskBarDlg::SaveConfig();
-		if (m_tBarDlg != nullptr)
+		if (IsTaskbarWndValid())
 		{
 			m_tBarDlg->ApplySettings();
 			//如果更改了任务栏窗口字体或显示的文本，则任务栏窗口可能要变化，于是关闭再打开任务栏窗口
@@ -798,6 +799,11 @@ void CTrafficMonitorDlg::SetTextFont()
 	m_disp_down.SetFont(&m_font);
 }
 
+bool CTrafficMonitorDlg::IsTaskbarWndValid() const
+{
+    return m_tBarDlg != nullptr && ::IsWindow(m_tBarDlg->GetSafeHwnd());
+}
+
 void CTrafficMonitorDlg::ApplySettings()
 {
 	//应用文字颜色设置
@@ -840,6 +846,7 @@ BOOL CTrafficMonitorDlg::OnInitDialog()
 	theApp.m_notify_icons[1] = (HICON)LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDI_NOFITY_ICON2), IMAGE_ICON, theApp.DPI(16), theApp.DPI(16), LR_DEFAULTCOLOR | LR_CREATEDIBSECTION);
 	theApp.m_notify_icons[2] = (HICON)LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDI_NOFITY_ICON3), IMAGE_ICON, theApp.DPI(16), theApp.DPI(16), LR_DEFAULTCOLOR | LR_CREATEDIBSECTION);
 	theApp.m_notify_icons[3] = (HICON)LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDR_MAINFRAME), IMAGE_ICON, theApp.DPI(16), theApp.DPI(16), LR_DEFAULTCOLOR | LR_CREATEDIBSECTION);
+	theApp.m_notify_icons[4] = (HICON)LoadImage(AfxGetInstanceHandle(), MAKEINTRESOURCE(IDI_NOFITY_ICON4), IMAGE_ICON, theApp.DPI(16), theApp.DPI(16), LR_DEFAULTCOLOR | LR_CREATEDIBSECTION);
 
 	//设置通知区域图标
 	m_ntIcon.cbSize = sizeof(NOTIFYICONDATA);	//该结构体变量的大小
@@ -1153,29 +1160,35 @@ void CTrafficMonitorDlg::OnTimer(UINT_PTR nIDEvent)
 		//只有主窗口和任务栏窗口至少有一个显示时才执行下面的处理
 		if (!theApp.m_cfg_data.m_hide_main_window || theApp.m_cfg_data.m_show_task_bar_wnd)
 		{
-			//获取CPU利用率
-			FILETIME idleTime;
-			FILETIME kernelTime;
-			FILETIME userTime;
-			GetSystemTimes(&idleTime, &kernelTime, &userTime);
+			//获取CPU使用率
+			HQUERY hQuery;
+			HCOUNTER hCounter;
+			DWORD counterType;
+			PDH_RAW_COUNTER rawData;
 
-			__int64 idle = CCommon::CompareFileTime2(m_preidleTime, idleTime);
-			__int64 kernel = CCommon::CompareFileTime2(m_prekernelTime, kernelTime);
-			__int64 user = CCommon::CompareFileTime2(m_preuserTime, userTime);
+			PdhOpenQuery(NULL, 0, &hQuery);//开始查询
+            const wchar_t* query_str{};
+            if (theApp.m_win_version.GetMajorVersion() >= 10)
+                query_str = L"\\Processor Information(_Total)\\% Processor Utility";
+            else
+                query_str = L"\\Processor Information(_Total)\\% Processor Time";
+            PdhAddCounter(hQuery, query_str, NULL, &hCounter);
+			PdhCollectQueryData(hQuery);
+			PdhGetRawCounterValue(hCounter, &counterType, &rawData);
 
-			if (kernel + user == 0)
-			{
+			if (m_first_get_CPU_utility) {//需要获得两次数据才能计算CPU使用率
 				theApp.m_cpu_usage = 0;
+				m_first_get_CPU_utility = false;
+			} else {
+				PDH_FMT_COUNTERVALUE fmtValue;
+				PdhCalculateCounterFromRawValue(hCounter, PDH_FMT_DOUBLE, &rawData, &m_last_rawData, &fmtValue);//计算使用率
+				theApp.m_cpu_usage = fmtValue.doubleValue;//传出数据
+				if (theApp.m_cpu_usage > 100)
+					theApp.m_cpu_usage = 100;
 			}
-			else
-			{
-				//（总的时间-空闲时间）/总的时间=占用cpu的时间就是使用率
-				theApp.m_cpu_usage = static_cast<int>(abs((kernel + user - idle) * 100 / (kernel + user)));
-			}
-			m_preidleTime = idleTime;
-			m_prekernelTime = kernelTime;
-			m_preuserTime = userTime;
-		
+			m_last_rawData = rawData;//保存上一次数据
+			PdhCloseQuery(hQuery);//关闭查询
+
 			//获取内存利用率
 			MEMORYSTATUSEX statex;
 			statex.dwLength = sizeof(statex);
@@ -1187,15 +1200,18 @@ void CTrafficMonitorDlg::OnTimer(UINT_PTR nIDEvent)
 			ShowInfo();		//刷新窗口信息
 	
 			//更新鼠标提示
-			CString tip_info;
-			tip_info = GetMouseTipsInfo();
-			m_tool_tips.UpdateTipText(tip_info, this);
+            if (theApp.m_main_wnd_data.show_tool_tip)
+            {
+                CString tip_info;
+                tip_info = GetMouseTipsInfo();
+                m_tool_tips.UpdateTipText(tip_info, this);
+            }
 			//更新任务栏窗口鼠标提示
-			if (m_tBarDlg != nullptr)
+			if (IsTaskbarWndValid())
 				m_tBarDlg->UpdateToolTips();
 
 			//每隔10秒钟检测一次是否可以嵌入任务栏
-			if (m_tBarDlg != nullptr && m_timer_cnt % 10 == 1)
+			if (IsTaskbarWndValid() && m_timer_cnt % 10 == 1)
 			{
 				if (m_tBarDlg->GetCannotInsertToTaskBar() && m_insert_to_taskbar_cnt < MAX_INSERT_TO_TASKBAR_CNT)
 				{
@@ -1272,7 +1288,7 @@ void CTrafficMonitorDlg::OnTimer(UINT_PTR nIDEvent)
 
 	if (nIDEvent == TASKBAR_TIMER)
 	{
-		if (m_tBarDlg != nullptr && ::IsWindow(m_tBarDlg->GetSafeHwnd()))
+		if (IsTaskbarWndValid())
 		{
 			m_tBarDlg->AdjustWindowPos();
 			m_tBarDlg->Invalidate(FALSE);
@@ -1491,7 +1507,7 @@ void CTrafficMonitorDlg::OnClose()
 	theApp.SaveGlobalConfig();
 	SaveHistoryTraffic();
 
-	if (m_tBarDlg != nullptr)
+	if (IsTaskbarWndValid())
 		m_tBarDlg->OnCancel();
 
 	CDialogEx::OnClose();
@@ -1570,7 +1586,7 @@ BOOL CTrafficMonitorDlg::PreTranslateMessage(MSG* pMsg)
 	if (pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_ESCAPE) return TRUE;
 	if (pMsg->message == WM_KEYDOWN && pMsg->wParam == VK_RETURN) return TRUE;
 
-	if (m_tool_tips.GetSafeHwnd())
+	if (theApp.m_main_wnd_data.show_tool_tip && m_tool_tips.GetSafeHwnd())
 	{
 		m_tool_tips.RelayEvent(pMsg);
 	}
@@ -1661,7 +1677,7 @@ afx_msg LRESULT CTrafficMonitorDlg::OnNotifyIcon(WPARAM wParam, LPARAM lParam)
 	if (lParam == WM_RBUTTONUP && !dialog_exist)
 	{
 		//在通知区点击右键弹出右键菜单
-		if (m_tBarDlg != nullptr)		//如果显示了任务栏窗口，则在右击了通知区图标后将焦点设置到任务栏窗口
+        if (IsTaskbarWndValid())		//如果显示了任务栏窗口，则在右击了通知区图标后将焦点设置到任务栏窗口
 			m_tBarDlg->SetForegroundWindow();
 		else				//否则将焦点设置到主窗口
 			SetForegroundWindow();
@@ -1973,10 +1989,13 @@ void CTrafficMonitorDlg::OnLButtonDblClk(UINT nFlags, CPoint point)
 	case DoubleClickAction::OPTIONS:
 		OnOptions();				//双击后弹出“选项设置”对话框
 		break;
-	case DoubleClickAction::TASK_MANAGER:
-		ShellExecuteW(NULL, _T("open"), (theApp.m_system_dir + L"\\Taskmgr.exe").c_str(), NULL, NULL, SW_NORMAL);		//打开任务管理器
-		break;
-	case DoubleClickAction::CHANGE_SKIN:
+    case DoubleClickAction::TASK_MANAGER:
+        ShellExecuteW(NULL, _T("open"), (theApp.m_system_dir + L"\\Taskmgr.exe").c_str(), NULL, NULL, SW_NORMAL);		//打开任务管理器
+        break;
+    case DoubleClickAction::SEPCIFIC_APP:
+        ShellExecuteW(NULL, _T("open"), (theApp.m_main_wnd_data.double_click_exe).c_str(), NULL, NULL, SW_NORMAL);	//打开指定程序，默认任务管理器
+        break;
+    case DoubleClickAction::CHANGE_SKIN:
 		OnChangeSkin();				//双击后弹出“更换皮肤”对话框
 		break;
 	default:

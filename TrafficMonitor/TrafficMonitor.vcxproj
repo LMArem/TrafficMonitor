@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{09483BED-B1E9-4827-8120-A18302C84AA8}</ProjectGuid>
     <RootNamespace>TrafficMonitor</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.17134.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
     <Keyword>MFCProj</Keyword>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -75,15 +75,19 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
+    <ExcludePath />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
+    <ExcludePath />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
+    <ExcludePath />
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
+    <ExcludePath />
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -139,6 +143,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
+      <AdditionalOptions>$(ExternalCompilerOptions) %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -228,6 +233,7 @@
     <ClInclude Include="TaskBarSettingsDlg.h" />
     <ClInclude Include="TrafficMonitor.h" />
     <ClInclude Include="TrafficMonitorDlg.h" />
+    <ClInclude Include="UpdateHelper.h" />
     <ClInclude Include="WinVersionHelper.h" />
   </ItemGroup>
   <ItemGroup>
@@ -274,6 +280,7 @@
     <ClCompile Include="TaskBarSettingsDlg.cpp" />
     <ClCompile Include="TrafficMonitor.cpp" />
     <ClCompile Include="TrafficMonitorDlg.cpp" />
+    <ClCompile Include="UpdateHelper.cpp" />
     <ClCompile Include="WinVersionHelper.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -285,11 +292,15 @@
   <ItemGroup>
     <Image Include="res\about_background.bmp" />
     <Image Include="res\about_background_hd.bmp" />
+    <Image Include="res\bitmap3.bmp" />
     <Image Include="res\donate.bmp" />
+    <Image Include="res\donate_wechart.bmp" />
     <Image Include="res\notifyicon.ico" />
     <Image Include="res\notifyicon2.ico" />
     <Image Include="res\notifyicon3.ico" />
+    <Image Include="res\notifyicon4.ico" />
     <Image Include="res\notify_preview.bmp" />
+    <Image Include="res\notify_preview_light.bmp" />
     <Image Include="res\TrafficMonitor.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
